@@ -3,20 +3,16 @@
     <h2 class="font-serif font-bold text-sage-800 mb-6">设置</h2>
 
     <div class="space-y-3">
-      <!-- User info -->
       <div class="bg-white rounded-xl p-4 border border-sage-200">
         <p class="text-sm text-sage-500">当前用户</p>
         <p class="font-medium text-sage-800">{{ user?.username }}</p>
       </div>
 
-      <!-- Quick links -->
       <router-link to="/messages"
         class="block bg-white rounded-xl p-4 border border-sage-200 hover:border-sage-400 transition-colors">
         <div class="flex items-center justify-between">
           <span class="text-sage-800">修行寄语</span>
-          <svg class="w-4 h-4 text-sage-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
+          <span class="text-sage-400">&rsaquo;</span>
         </div>
       </router-link>
 
@@ -24,24 +20,34 @@
         class="block bg-white rounded-xl p-4 border border-sage-200 hover:border-sage-400 transition-colors">
         <div class="flex items-center justify-between">
           <span class="text-sage-800">白噪音</span>
-          <svg class="w-4 h-4 text-sage-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
+          <span class="text-sage-400">&rsaquo;</span>
         </div>
       </router-link>
 
-      <!-- Export -->
+      <button @click="backupToGitHub" :disabled="backupLoading"
+        class="w-full bg-white rounded-xl p-4 border border-sage-200 hover:border-sage-400 transition-colors text-left">
+        <div class="flex items-center justify-between">
+          <span class="text-sage-800">备份到 GitHub</span>
+          <span class="text-xs" :class="backupMsg === '已备份' ? 'text-sage-600' : 'text-sage-400'">{{ backupMsg }}</span>
+        </div>
+      </button>
+
+      <button @click="restoreFromGitHub" :disabled="restoreLoading"
+        class="w-full bg-white rounded-xl p-4 border border-sage-200 hover:border-sage-400 transition-colors text-left">
+        <div class="flex items-center justify-between">
+          <span class="text-sage-800">从 GitHub 恢复</span>
+          <span class="text-xs text-sage-400">{{ restoreMsg }}</span>
+        </div>
+      </button>
+
       <button @click="exportData"
         class="w-full bg-white rounded-xl p-4 border border-sage-200 hover:border-sage-400 transition-colors text-left">
         <div class="flex items-center justify-between">
           <span class="text-sage-800">导出数据 (JSON)</span>
-          <svg class="w-4 h-4 text-sage-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-          </svg>
+          <span class="text-sage-400">&darr;</span>
         </div>
       </button>
 
-      <!-- Logout -->
       <button @click="handleLogout"
         class="w-full mt-8 py-3 border border-vermilion-500 text-vermilion-500 rounded-lg hover:bg-vermilion-50 transition-colors">
         退出登录
@@ -61,9 +67,38 @@ const auth = useAuthStore()
 const api = useApi()
 const user = ref(null)
 
+const backupLoading = ref(false)
+const backupMsg = ref('')
+const restoreLoading = ref(false)
+const restoreMsg = ref('')
+
 onMounted(async () => {
   user.value = auth.user
 })
+
+async function backupToGitHub() {
+  backupLoading.value = true
+  backupMsg.value = '备份中...'
+  const { data } = await api.post('/backup/create')
+  backupMsg.value = data?.status === 'ok' ? '已备份' : '需配置GITHUB_PAT'
+  backupLoading.value = false
+  setTimeout(() => { backupMsg.value = '' }, 3000)
+}
+
+async function restoreFromGitHub() {
+  if (!confirm('将从 GitHub 恢复数据，当前数据将被覆盖，确定继续？')) return
+  restoreLoading.value = true
+  restoreMsg.value = '恢复中...'
+  const { data, error } = await api.post('/backup/restore')
+  if (data) {
+    restoreMsg.value = '已恢复'
+    location.reload()
+  } else {
+    restoreMsg.value = error || '失败'
+  }
+  restoreLoading.value = false
+  setTimeout(() => { restoreMsg.value = '' }, 3000)
+}
 
 async function exportData() {
   const [practicesRes, contentsRes, lotsRes, messagesRes] = await Promise.all([

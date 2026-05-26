@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import asyncio
 import os
+import signal
 
 from app.config import CORS_ORIGINS
 from app.database import init_db, async_session
-from app.routers import auth, contents, practices, lots, white_noise, messages
+from app.routers import auth, contents, practices, lots, white_noise, messages, backup
 
 
 async def seed_if_empty():
@@ -81,11 +83,36 @@ async def seed_if_empty():
         await db.commit()
 
 
+async def restore_if_empty():
+    """On fresh deploy, try to restore data from GitHub backup."""
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.services.backup_service import download_from_github, import_data
+
+    async with async_session() as db:
+        r = await db.execute(select(User).limit(1))
+        if r.scalar_one_or_none():
+            return  # DB has data, skip restore
+
+        data = await download_from_github()
+        if data:
+            await import_data(db, data)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await seed_if_empty()
+    await restore_if_empty()
     yield
+    # Auto-backup on shutdown
+    try:
+        from app.services.backup_service import export_data, upload_to_github
+        async with async_session() as db:
+            data = await export_data(db)
+            await upload_to_github(data)
+    except Exception:
+        pass
 
 
 app = FastAPI(title="修行记录", version="1.0.0", lifespan=lifespan)
@@ -104,6 +131,7 @@ app.include_router(practices.router)
 app.include_router(lots.router)
 app.include_router(white_noise.router)
 app.include_router(messages.router)
+app.include_router(backup.router)
 
 # Serve frontend static files in production
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
