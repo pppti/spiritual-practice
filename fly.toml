@@ -1,0 +1,18 @@
+app = "spiritual-practice"
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "data"
+  destination = "/data"
+  initial_size = "1gb"
