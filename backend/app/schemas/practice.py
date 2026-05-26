@@ -6,6 +6,7 @@ class PracticeCreate(BaseModel):
     title: str | None = None
     body: str
     mood: str | None = None
+    category: str | None = None
     duration_minutes: int | None = None
     practice_date: str | None = None
     content_ids: list[int] = []
@@ -15,6 +16,7 @@ class PracticeUpdate(BaseModel):
     title: str | None = None
     body: str | None = None
     mood: str | None = None
+    category: str | None = None
     duration_minutes: int | None = None
     practice_date: str | None = None
     content_ids: list[int] | None = None
@@ -25,6 +27,7 @@ class PracticeResponse(BaseModel):
     title: str | None = None
     body: str
     mood: str | None = None
+    category: str | None = None
     duration_minutes: int | None = None
     practice_date: str
     created_at: str

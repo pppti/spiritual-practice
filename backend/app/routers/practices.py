@@ -64,6 +64,7 @@ async def list_practices(
     date_from: str | None = None,
     date_to: str | None = None,
     mood: str | None = None,
+    category: str | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -77,6 +78,8 @@ async def list_practices(
         q = q.where(PracticeRecord.practice_date <= date_to)
     if mood:
         count_q = count_q.where(PracticeRecord.mood == mood)
+    if category:
+        count_q = count_q.where(PracticeRecord.category == category)
         q = q.where(PracticeRecord.mood == mood)
 
     total_r = await db.execute(count_q)
@@ -118,6 +121,7 @@ async def create_practice(
         title=req.title,
         body=req.body,
         mood=req.mood,
+        category=req.category,
         duration_minutes=req.duration_minutes,
         practice_date=req.practice_date or date.today().isoformat(),
     )
@@ -162,6 +166,8 @@ async def update_practice(
         record.body = req.body
     if req.mood is not None:
         record.mood = req.mood
+    if req.category is not None:
+        record.category = req.category
     if req.duration_minutes is not None:
         record.duration_minutes = req.duration_minutes
     if req.practice_date is not None:
@@ -222,6 +228,7 @@ def _practice_to_response(record: PracticeRecord) -> PracticeResponse:
         title=record.title,
         body=record.body,
         mood=record.mood,
+        category=record.category,
         duration_minutes=record.duration_minutes,
         practice_date=record.practice_date,
         created_at=record.created_at,

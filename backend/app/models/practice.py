@@ -11,6 +11,7 @@ class PracticeRecord(Base):
     title: Mapped[str | None] = mapped_column(String(500))
     body: Mapped[str] = mapped_column(nullable=False)
     mood: Mapped[str | None] = mapped_column(String(50))
+    category: Mapped[str | None] = mapped_column(String(50))
     duration_minutes: Mapped[int | None] = mapped_column(Integer)
     practice_date: Mapped[str] = mapped_column(String(10), default=lambda: date.today().isoformat())
     created_at: Mapped[str] = mapped_column(String(25), default=lambda: datetime.utcnow().isoformat())

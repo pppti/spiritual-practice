@@ -70,6 +70,16 @@ const routes = [
     component: () => import('../views/MessagesView.vue'),
   },
   {
+    path: '/chat',
+    name: 'Chat',
+    component: () => import('../views/ChatView.vue'),
+  },
+  {
+    path: '/chat/:id',
+    name: 'ChatDetail',
+    component: () => import('../views/ChatView.vue'),
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/SettingsView.vue'),

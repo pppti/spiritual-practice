@@ -8,7 +8,7 @@ import signal
 
 from app.config import CORS_ORIGINS
 from app.database import init_db, async_session
-from app.routers import auth, contents, practices, lots, white_noise, messages, backup
+from app.routers import auth, contents, practices, lots, white_noise, messages, backup, ai
 
 
 async def seed_if_empty():
@@ -132,6 +132,7 @@ app.include_router(lots.router)
 app.include_router(white_noise.router)
 app.include_router(messages.router)
 app.include_router(backup.router)
+app.include_router(ai.router)
 
 # Serve frontend static files in production
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
