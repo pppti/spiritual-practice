@@ -21,6 +21,22 @@
       </button>
     </div>
 
+    <!-- File mode -->
+    <div v-if="mode === 'file'" class="space-y-3">
+      <label class="flex flex-col items-center justify-center w-full py-12 border-2 border-dashed border-sage-300 rounded-xl cursor-pointer hover:border-sage-400 transition-colors">
+        <svg class="w-10 h-10 text-sage-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <p class="text-sm text-sage-500">点击上传文件</p>
+        <p class="text-xs text-sage-400 mt-1">支持 TXT / DOCX / PDF / MOBI，最大 20MB</p>
+        <input type="file" accept=".txt,.docx,.pdf,.mobi,.md" @change="handleFileUpload" class="hidden" />
+      </label>
+      <p v-if="fileUploadMsg" class="text-sm text-center" :class="fileUploadMsg.includes('成功')||fileUploadMsg.includes('提取') ? 'text-sage-600' : 'text-vermilion-500'">{{ fileUploadMsg }}</p>
+      <div v-if="extractedText" class="space-y-3">
+        <div class="text-xs text-sage-500 flex items-center justify-between"><span>文件解析结果（{{ extractedText.length }} 字）</span><button @click="fileProcessText" class="text-sage-600 underline">跳过AI整理，直接保存原文</button></div>
+        <textarea v-model="extractedText" rows="8" class="w-full px-4 py-3 rounded-xl border border-sage-200 focus:outline-none focus:border-sage-500 resize-none text-sm"></textarea>
+        <button @click="processExtractedText" :disabled="!extractedText.trim() || loading" class="w-full py-3 bg-sage-800 text-white rounded-xl hover:bg-sage-700 disabled:opacity-40 transition-colors font-serif">{{ loading ? 'AI 整理中...' : 'AI 整理' }}</button>
+      </div>
+    </div>
+
     <!-- Voice mode -->
     <div v-if="mode === 'voice'" class="space-y-3">
       <div class="bg-white rounded-xl p-6 border border-sage-200 text-center">
@@ -137,6 +153,7 @@ const router = useRouter()
 const api = useApi()
 
 const tabs = [
+  { key: 'file', label: '文件' },
   { key: 'text', label: '文字' },
   { key: 'voice', label: '语音' },
   { key: 'screen', label: '录屏' },
@@ -146,6 +163,8 @@ const inputText = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const result = ref(null)
+const fileUploadMsg = ref('')
+const extractedText = ref('')
 
 const moods = [
   { value: 'calm', label: '平静' },
@@ -162,6 +181,40 @@ const categories = [
   { value: 'yoga', label: '瑜伽/太极' },
   { value: 'other', label: '其他' },
 ]
+
+async function handleFileUpload(e) {
+  const file = e.target.files[0]; if (!file) return
+  if (file.size > 20 * 1024 * 1024) { fileUploadMsg.value = '文件太大（最大20MB）'; return }
+  fileUploadMsg.value = '正在解析文件...'
+  const formData = new FormData(); formData.append('file', file)
+  const auth = useAuthStore()
+  const res = await fetch('/api/ai/import-file', { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` }, body: formData })
+  const data = await res.json()
+  if (res.ok) {
+    fileUploadMsg.value = `解析成功，提取 ${data.original_text?.length || 0} 字`
+    extractedText.value = data.original_text || data.body
+    // If AI already processed it
+    if (data.title) {
+      result.value = { title: data.title, body: data.body, category: data.category, mood: data.mood, suggested_tags: data.suggested_tags || [] }
+    }
+  } else {
+    fileUploadMsg.value = data.detail || '解析失败'
+  }
+}
+
+function fileProcessText() {
+  inputText.value = extractedText.value
+  mode.value = 'text'
+  extractText.value = ''
+}
+
+async function processExtractedText() {
+  if (!extractedText.value.trim() || loading.value) return
+  inputText.value = extractedText.value
+  await processText()
+}
+
+import { useAuthStore } from '../stores/auth'
 
 async function processText() {
   if (!inputText.value.trim() || loading.value) return

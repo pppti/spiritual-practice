@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -251,6 +251,50 @@ async def smart_import(
             body=req.text,
             suggested_tags=[],
         )
+
+
+# ─── File Upload Import ───
+
+@router.post("/import-file")
+async def smart_import_file(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import json
+    from app.services.file_parser import parse_file
+
+    try:
+        content = await file.read()
+        text = parse_file(file.filename, content)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    if not text.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not extract text from file")
+
+    # Truncate if too long for AI
+    if len(text) > 8000:
+        text = text[:8000] + "\n...(content truncated)"
+
+    reply = await call_claude(IMPORT_PROMPT, [{"role": "user", "content": text}], max_tokens=600)
+
+    try:
+        reply_clean = reply.strip()
+        if reply_clean.startswith("```"):
+            reply_clean = reply_clean.split("\n", 1)[1].rsplit("\n```")[0]
+        data = json.loads(reply_clean)
+        return {
+            "title": data.get("title", ""),
+            "body": data.get("body", text),
+            "mood": data.get("mood"),
+            "duration_minutes": None,
+            "category": data.get("category"),
+            "suggested_tags": data.get("suggested_tags", []),
+            "original_text": text,
+        }
+    except (json.JSONDecodeError, KeyError):
+        return {"title": file.filename, "body": text, "suggested_tags": [], "original_text": text}
 
 
 # ─── Helpers ───
