@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.tracker.spiritualpractice",
+    "sha256_cert_fingerprints": ["E5:9E:09:F4:B0:E4:9E:B5:7C:22:C9:3D:8C:EC:FA:9A:49:DE:2B:18:EA:03:11:68:CE:D3:DA:89:A7:16:DF:AE"]
+  }
+}]
