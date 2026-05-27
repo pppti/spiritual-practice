@@ -13,7 +13,8 @@
     </div>
 
     <!-- Daily reading -->
-    <div v-if="dailyReading" class="bg-white rounded-xl p-5 border border-gold-300 shadow-sm" @click="$router.push(`/library/${dailyReading.id}`)">
+    <div v-if="dailyReading" class="bg-white rounded-xl p-5 border border-gold-300 shadow-sm cursor-pointer"
+      @click="$router.push(`/library/${dailyReading.id}${dailyReading.chapter_title ? '#' + encodeURIComponent(dailyReading.chapter_title) : ''}`)">
       <p class="text-xs text-gold-600 mb-2">📖 每日推荐阅读</p>
       <h3 class="font-bold text-sage-900 mb-2">{{ dailyReading.title }}</h3>
       <p class="text-sm text-sage-600 leading-relaxed line-clamp-4">{{ dailyReading.snippet }}</p>

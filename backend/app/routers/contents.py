@@ -99,32 +99,46 @@ async def daily_reading(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Deterministic selection based on today's date (UTC+8)
+    import hashlib
+    from datetime import datetime, timezone, timedelta
+    tz = timezone(timedelta(hours=8))
+    today = datetime.now(tz).strftime('%Y-%m-%d')
+
     r = await db.execute(
         select(Content)
         .options(selectinload(Content.tags).selectinload(ContentTag.tag))
         .where(Content.category.in_(['classic', 'sutra', 'book']))
-        .order_by(func.random())
-        .limit(1)
     )
-    c = r.unique().scalar_one_or_none()
-    if not c:
+    books = r.unique().scalars().all()
+    if not books:
         r = await db.execute(
             select(Content)
             .options(selectinload(Content.tags).selectinload(ContentTag.tag))
-            .order_by(func.random())
-            .limit(1)
         )
-        c = r.unique().scalar_one_or_none()
+        books = r.unique().scalars().all()
+    if not books:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No content available")
+
+    seed = int(hashlib.md5(today.encode()).hexdigest()[:8], 16)
+    c = books[seed % len(books)]
     if not c:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No content available")
-    import re, random
+    import re, random, hashlib
+    from datetime import datetime, timezone, timedelta
+    # Use today's date (UTC+8) as deterministic seed
+    tz = timezone(timedelta(hours=8))
+    today = datetime.now(tz).strftime('%Y-%m-%d')
+    seed = int(hashlib.md5(today.encode()).hexdigest()[:8], 16)
+    rng = random.Random(seed)
+
     body = c.body or ""
-    # Split by chapter headings: 第X章, 第X节, 第X卷
+    # Split by chapter headings
     chapters = re.split(r'\n(?=第[一二三四五六七八九十百千\d]+[章节卷部篇][^\n]*)', body)
     if len(chapters) <= 1:
         chapters = re.split(r'\n(?=[一二三四五六七八九十]+、[^\n]{2,})', body)
     if len(chapters) > 1:
-        idx = random.randint(1, len(chapters) - 1)
+        idx = rng.randint(1, len(chapters) - 1)
         ch = chapters[idx].strip()
         lines = ch.split('\n', 1)
         ch_title = lines[0].strip()

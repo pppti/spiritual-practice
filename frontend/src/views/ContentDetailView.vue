@@ -2,47 +2,30 @@
   <div class="px-4 py-4 pb-4">
     <div v-if="loading" class="text-center py-12 text-sage-400">加载中...</div>
     <template v-else-if="content">
-      <!-- Toolbar -->
       <div class="flex gap-2 mb-4">
         <button @click="$router.back()" class="flex-1 py-2.5 bg-sage-200 text-sage-700 rounded-lg text-sm hover:bg-sage-300 transition-colors">返回</button>
         <button v-if="toc.length" @click="showToc = !showToc" class="px-4 py-2.5 bg-sage-200 text-sage-700 rounded-lg text-sm hover:bg-sage-300 transition-colors">📑 目录</button>
         <button @click="handleDelete" class="px-4 py-2.5 bg-vermilion-500 text-white rounded-lg text-sm hover:bg-vermilion-600 transition-colors">删除</button>
       </div>
 
-      <!-- TOC Modal -->
-      <div v-if="showToc" class="fixed inset-0 bg-ink-900/40 z-50 flex justify-end" @click.self="showToc=false">
-        <div class="bg-white w-72 h-full overflow-y-auto shadow-lg p-4">
+      <div v-if="showToc" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(0,0,0,0.3)" @click.self="showToc=false">
+        <div class="bg-white w-72 h-full overflow-y-auto shadow-lg p-4" style="padding-bottom:120px">
           <h3 class="font-bold text-sage-800 mb-3">目录</h3>
           <div class="space-y-1">
-            <button v-for="(item, i) in toc" :key="i" @click="scrollToAnchor(item.id); showToc=false"
+            <button v-for="(item, i) in toc" :key="i" @click="jumpToHeading(item.title); showToc=false"
               class="block w-full text-left text-sm py-2 px-2 rounded hover:bg-sage-100 text-sage-700 transition-colors"
-              :class="{ 'pl-6 text-xs text-sage-500': item.level > 1 }">
+              :class="{ 'pl-6 text-xs text-slate-500': item.level > 1 }">
               {{ item.title }}
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Content -->
       <div class="bg-white rounded-xl p-5 border border-sage-200 shadow-sm">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs px-2 py-0.5 bg-sage-100 text-sage-600 rounded-full">{{ categoryNames[content.category] }}</span>
-          <span v-if="(content.body||'').length > 3000" class="text-xs text-sage-500">
-            {{ ((content.body || '').length / 1000).toFixed(0) }}K字
-          </span>
-        </div>
-        <h1 class="text-xl font-serif font-bold text-sage-900 mb-3">{{ content.title }}</h1>
-        <div class="font-serif text-sage-700 leading-relaxed whitespace-pre-wrap text-base" ref="contentBody">
-          <template v-for="(block, i) in contentBlocks" :key="i">
-            <h3 v-if="block.isHeading" :id="'anchor-'+i"
-              class="text-lg font-bold text-sage-800 mt-6 mb-2 border-b border-sage-200 pb-1"
-              :class="{ 'text-base': block.level > 1 }">
-              {{ block.text }}
-            </h3>
-            <p v-else class="mb-3">{{ block.text }}</p>
-          </template>
-        </div>
-        <p v-if="content.source" class="text-sm text-sage-500 mt-4 pt-4 border-t border-sage-100">—— {{ content.source }}</p>
+        <span class="text-xs px-2 py-0.5 bg-sage-100 text-sage-600 rounded-full">{{ categoryNames[content.category] }}</span>
+        <h1 class="text-xl font-serif font-bold text-sage-900 mt-2 mb-4">{{ content.title }}</h1>
+        <div class="font-serif text-sage-700 leading-relaxed whitespace-pre-wrap text-base" ref="contentBody" v-html="renderedBody"></div>
+        <p v-if="content.source" class="text-sm text-slate-500 mt-4 pt-4 border-t border-sage-100">—— {{ content.source }}</p>
       </div>
     </template>
   </div>
@@ -59,8 +42,13 @@ const api = useApi()
 const content = ref(null)
 const loading = ref(true)
 const showToc = ref(false)
+const contentBody = ref(null)
 
 const categoryNames = { quote: '语录', passage: '段落', sutra: '经文', classic: '经典', book: '书籍', verse: '诗词' }
+
+function slugify(text) {
+  return 'h-' + text.replace(/[^一-鿿\w]/g, '').slice(0, 20)
+}
 
 const toc = computed(() => {
   if (!content.value?.body) return []
@@ -72,18 +60,16 @@ const toc = computed(() => {
     { regex: /^(第[一二三四五六七八九十百千\d]+节[^\n]*)/, level: 2 },
     { regex: /^([一二三四五六七八九十]+、[^\n]{2,})/, level: 1 },
     { regex: /^(Chapter\s+\d+[^\n]*)/i, level: 1 },
-    { regex: /^(\d+[\.\、]\s*[^\n]{3,})/, level: 2 },
     { regex: /^(（[一二三四五六七八九十]）[^\n]+)/, level: 2 },
-    { regex: /^([一二三四五六七八九十]+)[\.\、\s]+([^\n]{3,})/, level: 2 },
   ]
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line || line.length > 120 || line.length < 3) continue
+  for (const line of lines) {
+    const t = line.trim()
+    if (!t || t.length > 120 || t.length < 3) continue
     for (const { regex, level } of patterns) {
-      const m = line.match(regex)
+      const m = t.match(regex)
       if (m && !seen.has(m[1])) {
         seen.add(m[1])
-        headings.push({ id: 'anchor-' + headings.length, title: m[1].slice(0, 80), level })
+        headings.push({ title: m[1].slice(0, 80), level, id: slugify(m[1]) })
         break
       }
     }
@@ -91,47 +77,55 @@ const toc = computed(() => {
   return headings
 })
 
-const contentBlocks = computed(() => {
-  if (!content.value?.body) return [{ text: '', isHeading: false }]
-  // Split body into blocks: headings become clickable anchors, rest is text
-  const body = content.value.body
-  const lines = body.split('\n')
-  const blocks = []
-  let currentText = ''
-
+const renderedBody = computed(() => {
+  if (!content.value?.body) return ''
+  const lines = content.value.body.split('\n')
   const isHeading = (line) => {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.length > 120) return false
-    return /^(第[一二三四五六七八九十百千\d]+[章节卷部篇])/.test(trimmed) ||
-           /^([一二三四五六七八九十]+[、\.\s])/.test(trimmed) ||
-           /^(（[一二三四五六七八九十]）)/.test(trimmed) ||
-           /^(Chapter\s+\d+)/i.test(trimmed)
+    const t = line.trim()
+    if (!t || t.length > 120) return false
+    return /^(第[一二三四五六七八九十百千\d]+[章节卷部篇])/.test(t) ||
+           /^([一二三四五六七八九十]+[、\.\s])/.test(t) ||
+           /^(（[一二三四五六七八九十]）)/.test(t) ||
+           /^(Chapter\s+\d+)/i.test(t)
   }
 
+  let html = ''
   for (const line of lines) {
+    const t = line.trim()
+    if (!t) { html += '<br>'; continue }
     if (isHeading(line)) {
-      if (currentText.trim()) {
-        blocks.push({ text: currentText, isHeading: false })
-        currentText = ''
-      }
-      blocks.push({ text: line.trim(), isHeading: true, level: line.includes('节') ? 2 : 1 })
+      const id = slugify(t)
+      html += `<h3 id="${id}" style="font-weight:bold;font-size:1.1em;margin-top:1.5em;margin-bottom:0.5em;padding-bottom:4px;border-bottom:1px solid #d1d7c9;color:#2d3a26">${escapeHtml(t)}</h3>`
     } else {
-      currentText += line + '\n'
+      html += `<p style="margin-bottom:0.8em">${escapeHtml(t)}</p>`
     }
   }
-  if (currentText.trim()) blocks.push({ text: currentText, isHeading: false })
-  return blocks
+  return html
 })
 
-function scrollToAnchor(id) {
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function jumpToHeading(title) {
+  const id = slugify(title)
   const el = document.getElementById(id)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 onMounted(async () => {
   const { data } = await api.get(`/contents/${route.params.id}`)
   if (data) content.value = data
   loading.value = false
+
+  // If navigated with a hash (from daily reading), scroll to it
+  await nextTick()
+  const hash = route.hash?.replace('#','')
+  if (hash) {
+    setTimeout(() => jumpToHeading(decodeURIComponent(hash)), 500)
+  }
 })
 
 async function handleDelete() {
