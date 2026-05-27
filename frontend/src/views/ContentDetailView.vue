@@ -47,7 +47,10 @@ const contentBody = ref(null)
 const categoryNames = { quote: '语录', passage: '段落', sutra: '经文', classic: '经典', book: '书籍', verse: '诗词' }
 
 function slugify(text) {
-  return 'h-' + text.replace(/[^一-鿿\w]/g, '').slice(0, 20)
+  // Simple hash that avoids Chinese chars in DOM IDs
+  let h = 0
+  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0
+  return 'h' + Math.abs(h).toString(36)
 }
 
 const toc = computed(() => {
