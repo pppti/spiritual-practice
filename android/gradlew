@@ -1,0 +1,3 @@
+#!/bin/sh
+export JAVA_HOME=${JAVA_HOME:-/tmp/jdk21/jdk-21.0.2/}
+exec "$JAVA_HOME/bin/java" -jar "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" "$@"

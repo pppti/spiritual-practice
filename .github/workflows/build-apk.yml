@@ -1,8 +1,5 @@
 name: Build APK
-
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -11,14 +8,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Install Gradle
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gradle
 
       - name: Setup Android SDK
         run: |
@@ -26,19 +20,17 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           curl -sL -o /tmp/sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q /tmp/sdk.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          unzip -q -o /tmp/sdk.zip -d $ANDROID_SDK_ROOT/cmdline-tools
           mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platforms;android-34" "build-tools;34.0.0" "platform-tools" || true
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platforms;android-34" "build-tools;34.0.0" "platform-tools" 2>&1 | tail -3
 
-      - name: Build Release APK
+      - name: Build APK
         run: |
           cd android
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          gradle wrapper --gradle-version 8.5
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: spiritual-practice-apk
           path: android/app/build/outputs/apk/release/*.apk
