@@ -124,9 +124,11 @@ async def stream_track(
             while chunk := f.read(chunk_size):
                 yield chunk
 
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_map = {'.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4'}
     return StreamingResponse(
         file_iterator(),
-        media_type="audio/mpeg",
+        media_type=mime_map.get(ext, 'audio/mpeg'),
         headers={
             "Accept-Ranges": "bytes",
             "Content-Length": str(file_size),

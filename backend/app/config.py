@@ -6,7 +6,8 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 30
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
-AUDIO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "audio")
+_default_audio = os.path.join(os.path.dirname(os.path.dirname(__file__)), "audio")
+AUDIO_DIR = os.getenv("AUDIO_DIR", _default_audio)
 _cors_env = os.getenv("CORS_ORIGINS", "")
 if _cors_env:
     CORS_ORIGINS = _cors_env.split(",")

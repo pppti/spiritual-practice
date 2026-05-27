@@ -12,6 +12,14 @@
       <p class="text-sm text-sage-500 mt-2 text-right">—— {{ dailyQuote.title }}</p>
     </div>
 
+    <!-- Daily reading -->
+    <div v-if="dailyReading" class="bg-white rounded-xl p-5 border border-gold-300 shadow-sm" @click="$router.push(`/library/${dailyReading.id}`)">
+      <p class="text-xs text-gold-600 mb-2">📖 每日推荐阅读</p>
+      <h3 class="font-bold text-sage-900 mb-2">{{ dailyReading.title }}</h3>
+      <p class="text-sm text-sage-600 leading-relaxed line-clamp-4">{{ dailyReading.snippet }}</p>
+      <p class="text-xs text-sage-400 mt-2 text-right">—— {{ dailyReading.source }} · 点击阅读全文</p>
+    </div>
+
     <!-- Quick actions -->
     <div class="grid grid-cols-3 gap-3">
       <button @click="$router.push('/practice/new')"
@@ -88,6 +96,7 @@ import EmptyState from '../components/common/EmptyState.vue'
 const api = useApi()
 const stats = ref({ total_entries: 0, total_minutes: 0, current_streak: 0, mood_distribution: {} })
 const recentEntries = ref([])
+const dailyReading = ref(null)
 const loading = ref(true)
 
 const moodNames = { calm: '平静', energized: '精力充沛', scattered: '散乱', peaceful: '安宁', tired: '疲惫' }
@@ -107,12 +116,14 @@ const dailyQuote = dailyQuotes[new Date().getDate() % dailyQuotes.length]
 
 onMounted(async () => {
   try {
-    const [statsRes, listRes] = await Promise.all([
+    const [statsRes, listRes, dailyRes] = await Promise.all([
       api.get('/practices/stats'),
       api.get('/practices?limit=3'),
+      api.get('/contents/daily-reading'),
     ])
     if (statsRes.data) stats.value = statsRes.data
     if (listRes.data) recentEntries.value = listRes.data.items
+    if (dailyRes.data) dailyReading.value = dailyRes.data
   } finally {
     loading.value = false
   }

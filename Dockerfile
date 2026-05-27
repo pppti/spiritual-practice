@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY backend/ /app/backend/
 
 ENV DATABASE_URL=sqlite+aiosqlite:////data/data.db
+ENV AUDIO_DIR=/data/audio
 ENV PYTHONPATH=/app/backend
 
 EXPOSE 8080

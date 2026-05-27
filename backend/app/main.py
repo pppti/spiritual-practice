@@ -68,12 +68,12 @@ async def seed_if_empty():
         ]
 
         tracks_data = [
-            {"name": "Gentle Rain", "name_cn": "细雨", "category": "rain", "file_path": "rain.mp3", "duration_s": 600},
-            {"name": "Forest Stream", "name_cn": "溪流", "category": "water", "file_path": "stream.mp3", "duration_s": 600},
-            {"name": "Singing Bowl", "name_cn": "颂钵", "category": "bowl", "file_path": "singing_bowl.mp3", "duration_s": 300},
-            {"name": "Mountain Wind", "name_cn": "山风", "category": "wind", "file_path": "wind.mp3", "duration_s": 600},
-            {"name": "Temple Bells", "name_cn": "梵钟", "category": "bell", "file_path": "temple_bells.mp3", "duration_s": 300},
-            {"name": "Thunder", "name_cn": "雷鸣", "category": "thunder", "file_path": "thunder.mp3", "duration_s": 600},
+            {"name": "Gentle Rain", "name_cn": "细雨", "category": "rain", "file_path": "rain.wav", "duration_s": 60},
+            {"name": "Forest Stream", "name_cn": "溪流", "category": "water", "file_path": "stream.wav", "duration_s": 60},
+            {"name": "Singing Bowl", "name_cn": "颂钵", "category": "bowl", "file_path": "singing_bowl.wav", "duration_s": 60},
+            {"name": "Mountain Wind", "name_cn": "山风", "category": "wind", "file_path": "wind.wav", "duration_s": 60},
+            {"name": "Temple Bells", "name_cn": "梵钟", "category": "bell", "file_path": "temple_bells.wav", "duration_s": 60},
+            {"name": "Thunder", "name_cn": "雷鸣", "category": "thunder", "file_path": "thunder.wav", "duration_s": 60},
         ]
 
         for d in lots_data:
@@ -99,13 +99,27 @@ async def restore_if_empty():
             await import_data(db, data)
 
 
+async def copy_builtin_audio():
+    import shutil
+    from app.config import AUDIO_DIR
+    builtin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "audio")
+    if not os.path.isdir(builtin_dir):
+        return
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    for fname in os.listdir(builtin_dir):
+        src = os.path.join(builtin_dir, fname)
+        dst = os.path.join(AUDIO_DIR, fname)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            shutil.copy2(src, dst)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await seed_if_empty()
     await restore_if_empty()
+    await copy_builtin_audio()
     yield
-    # Auto-backup on shutdown
     try:
         from app.services.backup_service import export_data, upload_to_github
         async with async_session() as db:

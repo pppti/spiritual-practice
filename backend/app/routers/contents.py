@@ -94,6 +94,41 @@ async def list_contents(
     return ContentListResponse(items=items, total=total, page=page, limit=limit)
 
 
+@router.get("/contents/daily-reading")
+async def daily_reading(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    r = await db.execute(
+        select(Content)
+        .options(selectinload(Content.tags).selectinload(ContentTag.tag))
+        .where(Content.category.in_(['classic', 'sutra', 'book']))
+        .order_by(func.random())
+        .limit(1)
+    )
+    c = r.unique().scalar_one_or_none()
+    if not c:
+        r = await db.execute(
+            select(Content)
+            .options(selectinload(Content.tags).selectinload(ContentTag.tag))
+            .order_by(func.random())
+            .limit(1)
+        )
+        c = r.unique().scalar_one_or_none()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No content available")
+    body = c.body or ""
+    lines = body.split('\n')
+    snippet = ""
+    for line in lines:
+        s = line.strip()
+        if s and len(s) > 30 and not s.startswith('第'):
+            snippet = s[:500]; break
+    if not snippet:
+        snippet = body[:500]
+    return {"id": c.id, "title": c.title, "snippet": snippet, "source": c.source or c.title}
+
+
 @router.get("/contents/{content_id}", response_model=ContentResponse)
 async def get_content(
     content_id: int,
@@ -181,6 +216,21 @@ async def update_content(
     await db.commit()
     await db.refresh(content)
     return _content_to_response(content)
+
+
+@router.post("/contents/batch-delete", status_code=status.HTTP_204_NO_CONTENT)
+async def batch_delete(
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ids = body.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No IDs provided")
+    r = await db.execute(select(Content).where(Content.id.in_(ids)))
+    for c in r.scalars().all():
+        await db.delete(c)
+    await db.commit()
 
 
 @router.delete("/contents/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
