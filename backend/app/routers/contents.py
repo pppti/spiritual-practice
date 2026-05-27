@@ -90,7 +90,7 @@ async def list_contents(
     result = await db.execute(q)
     contents = result.unique().scalars().all()
 
-    items = [_content_to_response(c) for c in contents]
+    items = [_content_to_response(c, truncate_body=True) for c in contents]
     return ContentListResponse(items=items, total=total, page=page, limit=limit)
 
 
@@ -197,14 +197,17 @@ async def delete_content(
     await db.commit()
 
 
-def _content_to_response(c: Content) -> ContentResponse:
+def _content_to_response(c: Content, truncate_body: bool = False) -> ContentResponse:
     from app.schemas.content import TagResponse
+    body = c.body
+    if truncate_body and len(body) > 300:
+        body = body[:300] + "..."
     return ContentResponse(
         id=c.id,
         title=c.title,
         source=c.source,
         category=c.category,
-        body=c.body,
+        body=body,
         notes=c.notes,
         created_at=c.created_at,
         updated_at=c.updated_at,
