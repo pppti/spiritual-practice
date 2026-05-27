@@ -18,13 +18,25 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          curl -sL -o /tmp/sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/sdk.zip -d $HOME/android-sdk/cmdline-tools
+          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
-      - name: Grant gradlew execute permission
-        run: cd android && chmod +x gradlew 2>/dev/null; true
+      - name: Install Gradle
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gradle
 
       - name: Build Release APK
-        run: cd android && ./gradlew assembleRelease 2>/dev/null || gradle assembleRelease
+        run: |
+          cd android
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          mkdir -p local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          gradle assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
