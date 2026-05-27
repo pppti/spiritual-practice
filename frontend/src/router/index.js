@@ -70,6 +70,11 @@ const routes = [
     component: () => import('../views/MessagesView.vue'),
   },
   {
+    path: '/import',
+    name: 'SmartImport',
+    component: () => import('../views/SmartImportView.vue'),
+  },
+  {
     path: '/chat',
     name: 'Chat',
     component: () => import('../views/ChatView.vue'),

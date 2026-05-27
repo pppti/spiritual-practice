@@ -205,6 +205,54 @@ async def auto_entry(
         )
 
 
+# ─── Smart Import ───
+
+IMPORT_PROMPT = """用户提供了一段文字内容（可能是语音转文字、课程笔记、感悟记录等）。
+请分析内容，提取并整理成结构化的修行日记。
+
+首先判断内容类型（content_type）：修行感悟/课程笔记/经典摘录/日常记录/其它
+
+返回纯JSON格式（不要markdown代码块）：
+{
+  "title": "简短的标题",
+  "body": "整理后的正文，保留关键信息，语句通顺流畅",
+  "category": "meditation/chanting/reading/walking/yoga/other 中选一个",
+  "mood": "calm/energized/scattered/peaceful/tired 中选一个，没有则null",
+  "suggested_tags": ["标签1", "标签2"],
+  "content_type": "修行感悟"
+}"""
+
+
+@router.post("/import", response_model=AutoEntryResponse)
+async def smart_import(
+    req: AutoEntryRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import json
+    reply = await call_claude(IMPORT_PROMPT, [{"role": "user", "content": req.text}], max_tokens=600)
+
+    try:
+        reply_clean = reply.strip()
+        if reply_clean.startswith("```"):
+            reply_clean = reply_clean.split("\n", 1)[1].rsplit("\n```")[0]
+        data = json.loads(reply_clean)
+        return AutoEntryResponse(
+            title=data.get("title", ""),
+            body=data.get("body", req.text),
+            mood=data.get("mood"),
+            duration_minutes=None,
+            category=data.get("category"),
+            suggested_tags=data.get("suggested_tags", []),
+        )
+    except (json.JSONDecodeError, KeyError):
+        return AutoEntryResponse(
+            title="",
+            body=req.text,
+            suggested_tags=[],
+        )
+
+
 # ─── Helpers ───
 
 async def _build_practice_context(db: AsyncSession) -> str:
