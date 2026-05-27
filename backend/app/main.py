@@ -102,7 +102,7 @@ async def restore_if_empty():
 async def fix_builtin_audio_paths():
     """Fix old .mp3 paths to .wav and copy built-in audio to persistent volume."""
     import shutil
-    from sqlalchemy import update
+    from sqlalchemy import select
     from app.models.white_noise import WhiteNoiseTrack
     from app.config import AUDIO_DIR
 
