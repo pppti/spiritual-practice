@@ -66,21 +66,24 @@ const toc = computed(() => {
   if (!content.value?.body) return []
   const lines = content.value.body.split('\n')
   const headings = []
-  // Match patterns like: 第X章, 第一章, Chapter, 一、, (一), 1.1, etc.
+  const seen = new Set()
   const patterns = [
-    /^(第[一二三四五六七八九十百千\d]+章[^\n]*)/,
-    /^(第[一二三四五六七八九十百千\d]+节[^\n]*)/,
-    /^([一二三四五六七八九十]+、[^\n]+)/,
-    /^(Chapter\s+\d+[^\n]*)/i,
-    /^(\d+\.\s+[^\n]+)/,
+    { regex: /^(第[一二三四五六七八九十百千\d]+章[^\n]*)/, level: 1 },
+    { regex: /^(第[一二三四五六七八九十百千\d]+节[^\n]*)/, level: 2 },
+    { regex: /^([一二三四五六七八九十]+、[^\n]{2,})/, level: 1 },
+    { regex: /^(Chapter\s+\d+[^\n]*)/i, level: 1 },
+    { regex: /^(\d+[\.\、]\s*[^\n]{3,})/, level: 2 },
+    { regex: /^(（[一二三四五六七八九十]）[^\n]+)/, level: 2 },
+    { regex: /^([一二三四五六七八九十]+)[\.\、\s]+([^\n]{3,})/, level: 2 },
   ]
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line || line.length > 100) continue
-    for (const pat of patterns) {
-      const m = line.match(pat)
-      if (m) {
-        headings.push({ id: 'anchor-' + headings.length, title: m[1], level: pat.toString().includes('节') ? 2 : 1 })
+    if (!line || line.length > 120 || line.length < 3) continue
+    for (const { regex, level } of patterns) {
+      const m = line.match(regex)
+      if (m && !seen.has(m[1])) {
+        seen.add(m[1])
+        headings.push({ id: 'anchor-' + headings.length, title: m[1].slice(0, 80), level })
         break
       }
     }
@@ -98,10 +101,11 @@ const contentBlocks = computed(() => {
 
   const isHeading = (line) => {
     const trimmed = line.trim()
-    if (!trimmed || trimmed.length > 100) return false
-    return /^(第[一二三四五六七八九十百千\d]+[章节][^\n]*)/.test(trimmed) ||
-           /^([一二三四五六七八九十]+、[^\n]+)/.test(trimmed) ||
-           /^(Chapter\s+\d+[^\n]*)/i.test(trimmed)
+    if (!trimmed || trimmed.length > 120) return false
+    return /^(第[一二三四五六七八九十百千\d]+[章节卷部篇])/.test(trimmed) ||
+           /^([一二三四五六七八九十]+[、\.\s])/.test(trimmed) ||
+           /^(（[一二三四五六七八九十]）)/.test(trimmed) ||
+           /^(Chapter\s+\d+)/i.test(trimmed)
   }
 
   for (const line of lines) {

@@ -117,15 +117,26 @@ async def daily_reading(
         c = r.unique().scalar_one_or_none()
     if not c:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No content available")
+    import re, random
     body = c.body or ""
-    lines = body.split('\n')
+    # Split by chapter headings: 第X章, 第X节, 第X卷
+    chapters = re.split(r'\n(?=第[一二三四五六七八九十百千\d]+[章节卷部篇][^\n]*)', body)
+    if len(chapters) <= 1:
+        chapters = re.split(r'\n(?=[一二三四五六七八九十]+、[^\n]{2,})', body)
+    if len(chapters) > 1:
+        idx = random.randint(1, len(chapters) - 1)
+        ch = chapters[idx].strip()
+        lines = ch.split('\n', 1)
+        ch_title = lines[0].strip()
+        ch_body = lines[1].strip() if len(lines) > 1 else ch
+        return {"id": c.id, "title": f"{c.title} · {ch_title}", "snippet": ch_body[:800], "source": c.source or c.title}
+    # Fallback: first meaningful paragraph
     snippet = ""
-    for line in lines:
+    for line in body.split('\n'):
         s = line.strip()
-        if s and len(s) > 30 and not s.startswith('第'):
-            snippet = s[:500]; break
-    if not snippet:
-        snippet = body[:500]
+        if s and len(s) > 30:
+            snippet = s[:800]; break
+    if not snippet: snippet = body[:800]
     return {"id": c.id, "title": c.title, "snippet": snippet, "source": c.source or c.title}
 
 
