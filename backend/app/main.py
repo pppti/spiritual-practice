@@ -99,18 +99,33 @@ async def restore_if_empty():
             await import_data(db, data)
 
 
-async def copy_builtin_audio():
+async def fix_builtin_audio_paths():
+    """Fix old .mp3 paths to .wav and copy built-in audio to persistent volume."""
     import shutil
+    from sqlalchemy import update
+    from app.models.white_noise import WhiteNoiseTrack
     from app.config import AUDIO_DIR
+
     builtin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "audio")
     if not os.path.isdir(builtin_dir):
         return
     os.makedirs(AUDIO_DIR, exist_ok=True)
-    for fname in os.listdir(builtin_dir):
-        src = os.path.join(builtin_dir, fname)
-        dst = os.path.join(AUDIO_DIR, fname)
-        if os.path.isfile(src) and not os.path.exists(dst):
-            shutil.copy2(src, dst)
+
+    async with async_session() as db:
+        # Fix .mp3 paths in database to .wav
+        tracks = await db.execute(select(WhiteNoiseTrack).where(WhiteNoiseTrack.is_builtin == 1))
+        for t in tracks.scalars().all():
+            if t.file_path.endswith('.mp3'):
+                new_path = t.file_path.replace('.mp3', '.wav')
+                t.file_path = new_path
+        await db.commit()
+
+        # Copy built-in audio files to persistent volume
+        for fname in os.listdir(builtin_dir):
+            src = os.path.join(builtin_dir, fname)
+            dst = os.path.join(AUDIO_DIR, fname)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                shutil.copy2(src, dst)
 
 
 @asynccontextmanager
@@ -118,7 +133,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     await seed_if_empty()
     await restore_if_empty()
-    await copy_builtin_audio()
+    await fix_builtin_audio_paths()
     yield
     try:
         from app.services.backup_service import export_data, upload_to_github

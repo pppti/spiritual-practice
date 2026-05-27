@@ -114,7 +114,15 @@ async def stream_track(
 
     file_path = os.path.join(AUDIO_DIR, track.file_path)
     if not os.path.isfile(file_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audio file not found")
+        # Try alternate extensions
+        base = os.path.splitext(os.path.join(AUDIO_DIR, track.file_path))[0]
+        for alt_ext in ['.wav', '.mp3', '.m4a', '.ogg']:
+            alt_path = base + alt_ext
+            if os.path.isfile(alt_path):
+                file_path = alt_path
+                break
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audio file not found")
 
     file_size = os.path.getsize(file_path)
 
