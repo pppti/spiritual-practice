@@ -22,8 +22,10 @@ import { useOffline } from './composables/useOffline'
 import AppHeader from './components/common/AppHeader.vue'
 import BottomNav from './components/common/BottomNav.vue'
 
-const { isOnline: offline } = useOffline()
+const { isOnline } = useOffline()
 const route = useRoute()
+
+const offline = computed(() => !isOnline.value)
 
 const showNav = computed(() => !['Login', 'Register'].includes(route.name))
 </script>
