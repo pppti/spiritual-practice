@@ -33,6 +33,13 @@ export function useAudio() {
     const entry = tracks.value.find(t => t.id === id)
     if (!entry) return
     if (entry.audio.paused) {
+      // Stop all other tracks first (solo mode)
+      tracks.value.forEach(t => {
+        if (t.id !== id && !t.audio.paused) {
+          t.audio.pause()
+          t.playing = false
+        }
+      })
       entry.audio.play().catch(() => {})
     } else {
       entry.audio.pause()
