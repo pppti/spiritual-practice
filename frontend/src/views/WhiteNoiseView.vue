@@ -14,7 +14,12 @@
         导入音频
         <input type="file" accept="audio/*" @change="handleUpload" class="hidden" />
       </label>
-      <p v-if="uploadMsg" class="text-xs text-center mt-1" :class="uploadMsg.includes('成功') ? 'text-sage-600' : 'text-vermilion-500'">{{ uploadMsg }}</p>
+      <div v-if="uploading" class="mt-2">
+        <div class="h-2 bg-sage-200 rounded-full overflow-hidden">
+          <div class="h-full bg-sage-600 rounded-full transition-all duration-300" :style="{ width: uploadProgress + '%' }"></div>
+        </div>
+      </div>
+      <p v-if="uploadMsg" class="text-xs text-center mt-1" :class="uploadMsg.includes('成功') ? 'text-sage-600' : uploadMsg.includes('失败')||uploadMsg.includes('错误') ? 'text-vermilion-500' : 'text-sage-500'">{{ uploadMsg }}</p>
     </div>
 
     <div v-if="loading" class="text-center text-sage-400 py-6">加载中...</div>
@@ -78,6 +83,7 @@ const trackList = ref([])
 const loading = ref(true)
 const uploadMsg = ref('')
 const uploading = ref(false)
+const uploadProgress = ref(0)
 
 const categoryNames = { rain: '雨', water: '水', bell: '钟', bowl: '钵', wind: '风', thunder: '雷' }
 
@@ -115,29 +121,45 @@ async function handleUpload(e) {
     return
   }
   uploading.value = true
+  uploadProgress.value = 0
   uploadMsg.value = '上传中...'
   const formData = new FormData()
   formData.append('file', file)
   formData.append('name_cn', file.name.replace(/\.[^/.]+$/, ''))
 
   const auth = useAuthStore()
-  const res = await fetch('/api/white-noise/upload', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${auth.token}` },
-    body: formData,
+
+  // Use XHR for progress tracking
+  await new Promise((resolve) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', '/api/white-noise/upload')
+    xhr.setRequestHeader('Authorization', `Bearer ${auth.token}`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        uploadProgress.value = Math.round((e.loaded / e.total) * 100)
+        uploadMsg.value = `上传中 ${uploadProgress.value}%`
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const track = JSON.parse(xhr.responseText)
+        trackList.value.push(track)
+        uploadMsg.value = '导入成功'
+      } else {
+        uploadMsg.value = '导入失败: ' + (xhr.status === 401 ? '请先登录' : xhr.status)
+      }
+      resolve()
+    }
+    xhr.onerror = () => {
+      uploadMsg.value = '网络错误'
+      resolve()
+    }
+    xhr.send(formData)
   })
 
-  if (res.ok) {
-    const track = await res.json()
-    trackList.value.push(track)
-    uploadMsg.value = '导入成功'
-  } else {
-    const err = await res.text()
-    uploadMsg.value = '导入失败: ' + (res.status === 401 ? '请先登录' : res.status + ' ' + (err || '').slice(0, 50))
-  }
   uploading.value = false
   e.target.value = ''
-  setTimeout(() => { uploadMsg.value = '' }, 5000)
+  setTimeout(() => { uploadMsg.value = ''; uploadProgress.value = 0 }, 3000)
 }
 
 async function deleteTrack(id) {
