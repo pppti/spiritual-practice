@@ -91,11 +91,12 @@ const activeTracks = computed(() => {
 
 const anyPlaying = computed(() => audio.tracks.value.some(t => t.playing.value))
 
-function togglePlay(track) {
-  if (!activeTracks.value[track.id]) {
-    audio.addTrack(track)
+function togglePlay(id) {
+  if (!activeTracks.value[id]) {
+    const trackData = trackList.value.find(t => t.id === id)
+    if (trackData) audio.addTrack(trackData)
   }
-  audio.togglePlay(track.id)
+  audio.togglePlay(id)
 }
 
 function setVolume(trackId, vol) {
