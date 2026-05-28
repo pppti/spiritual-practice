@@ -31,17 +31,23 @@
         <div class="font-serif text-sage-700 leading-relaxed whitespace-pre-wrap text-base" v-html="displayBody"></div>
         <p v-if="content.source" class="text-sm text-slate-500 mt-4 pt-4 border-t border-sage-100">—— {{ content.source }}</p>
       </div>
+
+      <!-- Floating back-to-TOC button -->
+      <button v-if="tocItems.length && showBackToc" @click="showToc = true"
+        class="fixed bottom-24 right-4 w-12 h-12 bg-sage-800 text-white rounded-full shadow-lg flex items-center justify-center z-30 text-xs transition-all hover:bg-sage-700">
+        📑
+      </button>
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
 
 const route = useRoute(); const router = useRouter(); const api = useApi()
-const content = ref(null); const loading = ref(true); const showToc = ref(false)
+const content = ref(null); const loading = ref(true); const showToc = ref(false); const showBackToc = ref(false)
 const categoryNames = { quote: '语录', passage: '段落', sutra: '经文', classic: '经典', book: '书籍', verse: '诗词' }
 
 const tocItems = computed(() => {
@@ -84,10 +90,18 @@ function jumpToChapter(anchorId) {
   })
 }
 
+let scrollHandler = null
+
 onMounted(async () => {
   const { data } = await api.get(`/contents/${route.params.id}`)
   if (data) content.value = data
   loading.value = false
+  scrollHandler = () => { showBackToc.value = window.scrollY > 400 }
+  window.addEventListener('scroll', scrollHandler, { passive: true })
+})
+
+onUnmounted(() => {
+  if (scrollHandler) window.removeEventListener('scroll', scrollHandler)
 })
 
 async function handleDelete() {
