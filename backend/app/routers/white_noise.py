@@ -20,7 +20,6 @@ MAX_SIZE = 30 * 1024 * 1024  # 30MB
 
 @router.get("/tracks", response_model=list[WhiteNoiseTrackResponse])
 async def list_tracks(
-    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(WhiteNoiseTrack).order_by(WhiteNoiseTrack.category, WhiteNoiseTrack.name))
@@ -104,7 +103,6 @@ async def delete_track(
 @router.get("/stream/{track_id}")
 async def stream_track(
     track_id: int,
-    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(WhiteNoiseTrack).where(WhiteNoiseTrack.id == track_id))
