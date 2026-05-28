@@ -29,6 +29,7 @@
           <div>
             <p class="font-medium text-sage-800">{{ track.name_cn || track.name }}</p>
             <p class="text-xs text-sage-400">{{ categoryNames[track.category] || track.category }}</p>
+            <p v-if="activeTracks[track.id]?.error" class="text-xs text-vermilion-500 mt-1">{{ activeTracks[track.id].error }}</p>
           </div>
           <div class="flex items-center gap-2">
             <button v-if="!track.is_builtin" @click="deleteTrack(track.id)" class="text-xs text-vermilion-500 hover:text-vermilion-600 p-1">
@@ -44,8 +45,11 @@
             <!-- Play/Pause -->
             <button @click="togglePlay(track.id)"
               class="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-              :class="activeTracks[track.id]?.playing ? 'bg-sage-200 text-sage-700' : 'bg-sage-800 text-white'">
-              <svg v-if="activeTracks[track.id]?.playing" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              :class="activeTracks[track.id]?.playing ? 'bg-sage-200 text-sage-700' : activeTracks[track.id]?.loading ? 'bg-amber-400 text-white animate-pulse' : 'bg-sage-800 text-white'">
+              <svg v-if="activeTracks[track.id]?.loading" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="30" stroke-linecap="round"/>
+              </svg>
+              <svg v-else-if="activeTracks[track.id]?.playing" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <rect x="6" y="4" width="4" height="16" rx="1"/>
                 <rect x="14" y="4" width="4" height="16" rx="1"/>
               </svg>
@@ -84,7 +88,7 @@ const categoryNames = { rain: '雨', water: '水', bell: '钟', bowl: '钵', win
 const activeTracks = computed(() => {
   const map = {}
   audio.tracks.value.forEach(t => {
-    map[t.id] = { playing: t.playing.value, volume: t.volume.value }
+    map[t.id] = { playing: t.playing.value, volume: t.volume.value, loading: t.loading?.value, error: t.error?.value }
   })
   return map
 })
