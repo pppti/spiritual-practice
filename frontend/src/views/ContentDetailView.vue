@@ -46,22 +46,31 @@ const bodyEl = ref(null)
 
 const categoryNames = { quote: '语录', passage: '段落', sutra: '经文', classic: '经典', book: '书籍', verse: '诗词' }
 
+const TOC_MARKER = '【目录导航】'
+
 const tocItems = computed(() => {
   if (!content.value?.body) return []
   const body = content.value.body
-  const navMatch = body.match(/【目录导航】\n([\s\S]*?)\n---/)
-  if (!navMatch) return []
-  return navMatch[1].split('\n').filter(l => l.trim()).map(l => ({
-    title: l.trim(),
-    level: l.startsWith('  ') ? (l.match(/^(\s+)/)[0].length / 2) : 0
-  }))
+  const tocStart = body.indexOf(TOC_MARKER)
+  if (tocStart === -1) return []
+  const tocEnd = body.indexOf('\n---', tocStart)
+  if (tocEnd === -1) return []
+  const tocSection = body.slice(tocStart + TOC_MARKER.length + 1, tocEnd)
+  return tocSection.split('\n').filter(l => l.trim()).map(l => {
+    const trimmed = l.trim()
+    const leadingSpaces = l.length - l.trimStart().length
+    return { title: trimmed, level: Math.floor(leadingSpaces / 2) }
+  })
 })
 
 const displayBody = computed(() => {
   if (!content.value?.body) return ''
-  const parts = content.value.body.split('\n---\n', 2)
-  return (parts.length > 1 ? parts[1] : parts[0])
-    .replace(/\n/g, '<br>')
+  const body = content.value.body
+  const tocStart = body.indexOf(TOC_MARKER)
+  if (tocStart === -1) return body.replace(/\n/g, '<br>')
+  const tocEnd = body.indexOf('\n---', tocStart)
+  if (tocEnd === -1) return body.replace(/\n/g, '<br>')
+  return body.slice(tocEnd + 4).replace(/\n/g, '<br>')
 })
 
 function jumpToSection(title) {
