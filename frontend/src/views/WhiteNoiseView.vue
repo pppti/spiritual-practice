@@ -77,7 +77,7 @@ const audio = useAudio()
 const trackList = ref([])
 const loading = ref(true)
 const uploadMsg = ref('')
-let uploading = false
+const uploading = ref(false)
 
 const categoryNames = { rain: '雨', water: '水', bell: '钟', bowl: '钵', wind: '风', thunder: '雷' }
 
@@ -109,12 +109,12 @@ function stopAll() {
 
 async function handleUpload(e) {
   const file = e.target.files[0]
-  if (!file || uploading) return
+  if (!file || uploading.value) return
   if (file.size > 30 * 1024 * 1024) {
     uploadMsg.value = '文件太大（最大30MB）'
     return
   }
-  uploading = true
+  uploading.value = true
   uploadMsg.value = '上传中...'
   const formData = new FormData()
   formData.append('file', file)
@@ -132,11 +132,12 @@ async function handleUpload(e) {
     trackList.value.push(track)
     uploadMsg.value = '导入成功'
   } else {
-    uploadMsg.value = '导入失败'
+    const err = await res.text()
+    uploadMsg.value = '导入失败: ' + (res.status === 401 ? '请先登录' : res.status + ' ' + (err || '').slice(0, 50))
   }
-  uploading = false
+  uploading.value = false
   e.target.value = ''
-  setTimeout(() => { uploadMsg.value = '' }, 3000)
+  setTimeout(() => { uploadMsg.value = '' }, 5000)
 }
 
 async function deleteTrack(id) {
