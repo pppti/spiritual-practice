@@ -12,7 +12,7 @@
         <div class="bg-white w-72 h-full overflow-y-auto shadow-lg p-4" style="padding-bottom:120px">
           <h3 class="font-bold text-sage-800 mb-3">目录</h3>
           <div class="space-y-1">
-            <button v-for="(item, i) in toc" :key="i" @click="jumpToHeading(item.title); showToc=false"
+            <button v-for="(item, i) in toc" :key="i" @click="jumpToHeading(i); showToc=false"
               class="block w-full text-left text-sm py-2 px-2 rounded hover:bg-sage-100 text-sage-700 transition-colors"
               :class="{ 'pl-6 text-xs text-slate-500': item.level > 1 }">
               {{ item.title }}
@@ -24,7 +24,16 @@
       <div class="bg-white rounded-xl p-5 border border-sage-200 shadow-sm">
         <span class="text-xs px-2 py-0.5 bg-sage-100 text-sage-600 rounded-full">{{ categoryNames[content.category] }}</span>
         <h1 class="text-xl font-serif font-bold text-sage-900 mt-2 mb-4">{{ content.title }}</h1>
-        <div class="font-serif text-sage-700 leading-relaxed whitespace-pre-wrap text-base" ref="contentBody" v-html="renderedBody"></div>
+        <div class="font-serif text-sage-700 leading-relaxed whitespace-pre-wrap text-base" ref="contentBody">
+          <template v-for="(block, i) in contentBlocks" :key="i">
+            <h3 v-if="block.isHeading" :id="'sec-'+i"
+              class="text-lg font-bold text-sage-800 mt-6 mb-2 border-b border-sage-200 pb-1"
+              :class="{ 'text-base': block.level > 1 }">
+              {{ block.text }}
+            </h3>
+            <p v-else class="mb-3">{{ block.text }}</p>
+          </template>
+        </div>
         <p v-if="content.source" class="text-sm text-slate-500 mt-4 pt-4 border-t border-sage-100">—— {{ content.source }}</p>
       </div>
     </template>
@@ -32,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
 
@@ -46,11 +55,19 @@ const contentBody = ref(null)
 
 const categoryNames = { quote: '语录', passage: '段落', sutra: '经文', classic: '经典', book: '书籍', verse: '诗词' }
 
-function slugify(text) {
-  // Simple hash that avoids Chinese chars in DOM IDs
-  let h = 0
-  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0
-  return 'h' + Math.abs(h).toString(36)
+function isHeadingLine(line) {
+  const t = line.trim()
+  if (!t || t.length > 120) return false
+  return /^(第[一二三四五六七八九十百千\d]+[章节卷部篇])/.test(t) ||
+         /^([一二三四五六七八九十]+[、\.\s])/.test(t) ||
+         /^(（[一二三四五六七八九十]）)/.test(t) ||
+         /^(Chapter\s+\d+)/i.test(t)
+}
+
+function getHeadingLevel(line) {
+  const t = line.trim()
+  if (/节/.test(t)) return 2
+  return 1
 }
 
 const toc = computed(() => {
@@ -58,61 +75,61 @@ const toc = computed(() => {
   const lines = content.value.body.split('\n')
   const headings = []
   const seen = new Set()
-  const patterns = [
-    { regex: /^(第[一二三四五六七八九十百千\d]+章[^\n]*)/, level: 1 },
-    { regex: /^(第[一二三四五六七八九十百千\d]+节[^\n]*)/, level: 2 },
-    { regex: /^([一二三四五六七八九十]+、[^\n]{2,})/, level: 1 },
-    { regex: /^(Chapter\s+\d+[^\n]*)/i, level: 1 },
-    { regex: /^(（[一二三四五六七八九十]）[^\n]+)/, level: 2 },
-  ]
   for (const line of lines) {
+    if (!isHeadingLine(line)) continue
     const t = line.trim()
-    if (!t || t.length > 120 || t.length < 3) continue
-    for (const { regex, level } of patterns) {
-      const m = t.match(regex)
-      if (m && !seen.has(m[1])) {
-        seen.add(m[1])
-        headings.push({ title: m[1].slice(0, 80), level, id: slugify(m[1]) })
-        break
-      }
-    }
+    if (seen.has(t)) continue
+    seen.add(t)
+    headings.push({
+      title: t.slice(0, 80),
+      level: getHeadingLevel(line),
+      index: headings.length // maps to contentBlock index later
+    })
   }
   return headings
 })
 
-const renderedBody = computed(() => {
-  if (!content.value?.body) return ''
+const contentBlocks = computed(() => {
+  if (!content.value?.body) return [{ text: '', isHeading: false }]
   const lines = content.value.body.split('\n')
-  const isHeading = (line) => {
-    const t = line.trim()
-    if (!t || t.length > 120) return false
-    return /^(第[一二三四五六七八九十百千\d]+[章节卷部篇])/.test(t) ||
-           /^([一二三四五六七八九十]+[、\.\s])/.test(t) ||
-           /^(（[一二三四五六七八九十]）)/.test(t) ||
-           /^(Chapter\s+\d+)/i.test(t)
-  }
+  const blocks = []
+  let currentText = ''
+  let headingIdx = 0
 
-  let html = ''
   for (const line of lines) {
-    const t = line.trim()
-    if (!t) { html += '<br>'; continue }
-    if (isHeading(line)) {
-      const id = slugify(t)
-      html += `<h3 id="${id}" style="font-weight:bold;font-size:1.1em;margin-top:1.5em;margin-bottom:0.5em;padding-bottom:4px;border-bottom:1px solid #d1d7c9;color:#2d3a26">${escapeHtml(t)}</h3>`
+    if (isHeadingLine(line)) {
+      if (currentText.trim()) {
+        blocks.push({ text: currentText, isHeading: false })
+        currentText = ''
+      }
+      const t = line.trim()
+      blocks.push({ text: t, isHeading: true, level: getHeadingLevel(line), headingIdx: headingIdx++ })
     } else {
-      html += `<p style="margin-bottom:0.8em">${escapeHtml(t)}</p>`
+      currentText += line + '\n'
     }
   }
-  return html
+  if (currentText.trim()) blocks.push({ text: currentText, isHeading: false })
+  return blocks
 })
 
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-}
+// Build map: TOC heading index -> contentBlock index
+const tocToBlockIndex = computed(() => {
+  const map = {}
+  let hi = 0
+  contentBlocks.value.forEach((block, bi) => {
+    if (block.isHeading) {
+      map[hi] = bi
+      hi++
+    }
+  })
+  return map
+})
 
-function jumpToHeading(title) {
-  const id = slugify(title)
-  const el = document.getElementById(id)
+function jumpToHeading(tocIndex) {
+  showToc.value = false
+  const blockIndex = tocToBlockIndex.value[tocIndex]
+  if (blockIndex === undefined) return
+  const el = document.getElementById('sec-' + blockIndex)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -123,11 +140,15 @@ onMounted(async () => {
   if (data) content.value = data
   loading.value = false
 
-  // If navigated with a hash (from daily reading), scroll to it
-  await nextTick()
-  const hash = route.hash?.replace('#','')
+  // If navigated with hash (from daily reading), scroll on load
+  const hash = route.hash?.replace('#', '')
   if (hash) {
-    setTimeout(() => jumpToHeading(decodeURIComponent(hash)), 500)
+    await nextTick()
+    // Find TOC index matching the hash text
+    setTimeout(() => {
+      const idx = toc.value.findIndex(item => item.title === decodeURIComponent(hash))
+      if (idx >= 0) jumpToHeading(idx)
+    }, 300)
   }
 })
 
