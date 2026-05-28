@@ -42,7 +42,7 @@
               @input="setVolume(track.id, $event.target.value)"
               class="w-16 h-1 accent-sage-600" />
             <!-- Play/Pause -->
-            <button @click="togglePlay(track)"
+            <button @click="togglePlay(track.id)"
               class="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
               :class="activeTracks[track.id]?.playing ? 'bg-sage-200 text-sage-700' : 'bg-sage-800 text-white'">
               <svg v-if="activeTracks[track.id]?.playing" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
