@@ -14,7 +14,12 @@ from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/api/white-noise", tags=["white_noise"])
 
-ALLOWED_TYPES = {"audio/mpeg": ".mp3", "audio/wav": ".wav", "audio/ogg": ".ogg", "audio/mp4": ".m4a"}
+ALLOWED_TYPES = {
+    "audio/mpeg": ".mp3", "audio/wav": ".wav", "audio/wave": ".wav",
+    "audio/x-wav": ".wav", "audio/ogg": ".ogg", "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a", "audio/mpeg3": ".mp3", "audio/x-mpeg-3": ".mp3",
+    "video/mp4": ".m4a", "application/octet-stream": ".mp3",
+}
 MAX_SIZE = 30 * 1024 * 1024  # 30MB
 
 
@@ -45,14 +50,20 @@ async def upload_track(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported audio format. Use MP3, WAV, or OGG.")
+    # Determine extension: first by MIME, then by filename
+    ext = ALLOWED_TYPES.get(file.content_type)
+    if not ext:
+        name = (file.filename or '').lower()
+        if name.endswith('.mp3'): ext = '.mp3'
+        elif name.endswith('.wav'): ext = '.wav'
+        elif name.endswith('.ogg'): ext = '.ogg'
+        elif name.endswith('.m4a'): ext = '.m4a'
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported audio format: {file.content_type}")
 
     content = await file.read()
     if len(content) > MAX_SIZE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 30MB)")
-
-    ext = ALLOWED_TYPES[file.content_type]
     filename = f"{uuid.uuid4().hex}{ext}"
     filepath = os.path.join(AUDIO_DIR, filename)
 
